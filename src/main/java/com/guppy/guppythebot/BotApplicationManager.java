@@ -8,6 +8,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.guppy.guppythebot.commands.CommandController;
 import com.guppy.guppythebot.controller.BotCommandMappingHandler;
 import com.guppy.guppythebot.controller.BotController;
 import com.guppy.guppythebot.controller.BotControllerManager;
@@ -35,19 +36,20 @@ import net.dv8tion.jda.core.hooks.ListenerAdapter;
 public class BotApplicationManager extends ListenerAdapter
 {
 	private static final Logger log = LoggerFactory.getLogger(BotApplicationManager.class);
-
+	
 	private final Map<Long, BotGuildContext> guildContexts;
 	private final BotControllerManager controllerManager;
 	private final AudioPlayerManager playerManager;
 	private final ScheduledExecutorService executorService;
-
+	
 	public BotApplicationManager()
 	{
 		guildContexts = new HashMap<>();
 		controllerManager = new BotControllerManager();
-
+		
 		controllerManager.registerController(new MusicController.Factory());
-
+		controllerManager.registerController(new CommandController.Factory());
+		
 		playerManager = new DefaultAudioPlayerManager();
 		playerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.LOW);
 		playerManager.registerSourceManager(new YoutubeAudioSourceManager());
@@ -58,46 +60,46 @@ public class BotApplicationManager extends ListenerAdapter
 		playerManager.registerSourceManager(new BeamAudioSourceManager());
 		playerManager.registerSourceManager(new HttpAudioSourceManager());
 		playerManager.registerSourceManager(new LocalAudioSourceManager());
-
+		
 		executorService = Executors.newScheduledThreadPool(1, new DaemonThreadFactory("bot"));
 	}
-
+	
 	public ScheduledExecutorService getExecutorService()
 	{
 		return executorService;
 	}
-
+	
 	public AudioPlayerManager getPlayerManager()
 	{
 		return playerManager;
 	}
-
+	
 	private BotGuildContext createGuildState(long guildId, Guild guild)
 	{
 		BotGuildContext context = new BotGuildContext(guildId);
-
+		
 		for (BotController controller : controllerManager.createControllers(this, context, guild))
 		{
 			context.controllers.put(controller.getClass(), controller);
 		}
-
+		
 		return context;
 	}
-
+	
 	private synchronized BotGuildContext getContext(Guild guild)
 	{
 		long guildId = Long.parseLong(guild.getId());
 		BotGuildContext context = guildContexts.get(guildId);
-
+		
 		if (context == null)
 		{
 			context = createGuildState(guildId, guild);
 			guildContexts.put(guildId, context);
 		}
-
+		
 		return context;
 	}
-
+	
 	@Override
 	public void onMessageReceived(final MessageReceivedEvent event)
 	{
@@ -105,51 +107,48 @@ public class BotApplicationManager extends ListenerAdapter
 		{
 			return;
 		}
-
+		
 		BotGuildContext guildContext = getContext(event.getGuild());
-
-		controllerManager.dispatchMessage(guildContext.controllers, "!", event.getMessage(),
-				new BotCommandMappingHandler()
-				{
-					@Override
-					public void commandNotFound(Message message, String name)
-					{
-
-					}
-
-					@Override
-					public void commandWrongParameterCount(Message message, String name, String usage, int given,
-							int required)
-					{
-						event.getTextChannel().sendMessage("Wrong argument count for command").queue();
-					}
-
-					@Override
-					public void commandWrongParameterType(Message message, String name, String usage, int index,
-							String value, Class<?> expectedType)
-					{
-						event.getTextChannel().sendMessage("Wrong argument type for command").queue();
-						;
-					}
-
-					@Override
-					public void commandRestricted(Message message, String name)
-					{
-						event.getTextChannel().sendMessage("Command not permitted").queue();
-						;
-					}
-
-					@Override
-					public void commandException(Message message, String name, Throwable throwable)
-					{
-						event.getTextChannel().sendMessage("Command threw an exception").queue();
-						;
-
-						log.error("Command with content {} threw an exception.", message.getContent(), throwable);
-					}
-				});
+		
+		controllerManager.dispatchMessage(guildContext.controllers, "!", event.getMessage(), new BotCommandMappingHandler()
+		{
+			@Override
+			public void commandNotFound(Message message, String name)
+			{
+				
+			}
+			
+			@Override
+			public void commandWrongParameterCount(Message message, String name, String usage, int given, int required)
+			{
+				event.getTextChannel().sendMessage("Wrong argument count for command").queue();
+			}
+			
+			@Override
+			public void commandWrongParameterType(Message message, String name, String usage, int index, String value, Class<?> expectedType)
+			{
+				event.getTextChannel().sendMessage("Wrong argument type for command").queue();
+				;
+			}
+			
+			@Override
+			public void commandRestricted(Message message, String name)
+			{
+				event.getTextChannel().sendMessage("Command not permitted").queue();
+				;
+			}
+			
+			@Override
+			public void commandException(Message message, String name, Throwable throwable)
+			{
+				event.getTextChannel().sendMessage("Command threw an exception").queue();
+				;
+				
+				log.error("Command with content {} threw an exception.", message.getContent(), throwable);
+			}
+		});
 	}
-
+	
 	@Override
 	public void onGuildLeave(GuildLeaveEvent event)
 	{
