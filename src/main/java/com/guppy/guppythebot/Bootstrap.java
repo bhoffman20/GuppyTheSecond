@@ -11,7 +11,8 @@ public class Bootstrap
 	
 	public static void main(String[] args) throws Exception
 	{
-		new JDABuilder(AccountType.BOT).setToken("MzI5MDQ5MDAxNDYwNjI5NTA1.DDMyTw.dOHH8qk3yD6XTvZPqLfg2kzjtrA").setAudioSendFactory(new NativeAudioSendFactory())
+		// MzI5MDQ5MDAxNDYwNjI5NTA1.DDMyTw.dOHH8qk3yD6XTvZPqLfg2kzjtrA
+		new JDABuilder(AccountType.BOT).setToken("Mzc0NTcyOTg3NTE0MzU1NzEz.DNjPzQ.RYh_vzUYqOSZY0P_ddSgWvR0Hpg").setAudioSendFactory(new NativeAudioSendFactory())
 				.addEventListener(new BotApplicationManager()).buildAsync();
 	}
 }
