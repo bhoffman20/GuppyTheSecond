@@ -149,7 +149,7 @@ public class MusicController implements BotController
 	private void deserialize(Message message, String content) throws IOException
 	{
 		outputChannel.set((TextChannel) message.getChannel());
-		connectToFirstVoiceChannel(guild.getAudioManager());
+		connectToMusicVoiceChannel(guild.getAudioManager());
 		
 		byte[] bytes = Base64.decode(content);
 		
@@ -200,7 +200,7 @@ public class MusicController implements BotController
 	{
 		forPlayingTrack(track ->
 		{
-			track.setPosition(track.getPosition() + duration);
+			track.setPosition(track.getPosition() + duration * 1000);
 		});
 	}
 	
@@ -209,7 +209,7 @@ public class MusicController implements BotController
 	{
 		forPlayingTrack(track ->
 		{
-			track.setPosition(Math.max(0, track.getPosition() - duration));
+			track.setPosition(Math.max(0, track.getPosition() - duration * 1000));
 		});
 	}
 	
@@ -239,7 +239,7 @@ public class MusicController implements BotController
 	{
 		forPlayingTrack(track ->
 		{
-			track.setPosition(position);
+			track.setPosition(position * 1000);
 		});
 	}
 	
@@ -392,9 +392,9 @@ public class MusicController implements BotController
 			public void trackLoaded(AudioTrack track)
 			{
 				System.out.println("Track Loaded: " + track.getInfo().title);
-				connectToFirstVoiceChannel(guild.getAudioManager());
+				connectToMusicVoiceChannel(guild.getAudioManager());
 				
-				message.getChannel().sendMessage("Starting now: " + track.getInfo().title + " (length " + track.getDuration() + ")").queue();
+				message.getChannel().sendMessage("Starting now: " + track.getInfo().title).queue();
 				
 				if (now)
 				{
@@ -426,7 +426,7 @@ public class MusicController implements BotController
 					message.getChannel().sendMessage("Loaded playlist: " + playlist.getName() + " (" + tracks.size() + ")").queue();
 				}
 				
-				connectToFirstVoiceChannel(guild.getAudioManager());
+				connectToMusicVoiceChannel(guild.getAudioManager());
 				
 				if (selected != null)
 				{
@@ -551,7 +551,7 @@ public class MusicController implements BotController
 		return (hours == 0 ? "" : hours + ":") + String.format("%02d", mins) + ":" + String.format("%02d", seconds);
 	}
 	
-	private static void connectToFirstVoiceChannel(AudioManager audioManager)
+	private static void connectToMusicVoiceChannel(AudioManager audioManager)
 	{
 		if (!audioManager.isConnected() && !audioManager.isAttemptingToConnect())
 		{

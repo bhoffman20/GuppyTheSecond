@@ -110,7 +110,7 @@ public class BotApplicationManager extends ListenerAdapter
 		
 		BotGuildContext guildContext = getContext(event.getGuild());
 		
-		controllerManager.dispatchMessage(guildContext.controllers, "!", event.getMessage(), new BotCommandMappingHandler()
+		controllerManager.dispatchMessage(guildContext.controllers, Bootstrap.CMD_PREFIX, event.getMessage(), new BotCommandMappingHandler()
 		{
 			@Override
 			public void commandNotFound(Message message, String name)

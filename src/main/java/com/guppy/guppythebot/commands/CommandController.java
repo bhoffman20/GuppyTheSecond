@@ -47,7 +47,13 @@ public class CommandController implements BotController
 	@BotCommandHandler
 	private void help(Message message)
 	{
-		messageDispatcher.sendMessage("Commands:\n", message.getTextChannel());
+		messageDispatcher.sendMessage("```Commands:\r\n" + "play, playNow, playNext <YouTube link | YouTube search> . Adds a song to the queue\r\n"
+				+ "pause, resume . . . . . . . . . . . . . . . . . . . . . . Pause or resume the playing track\r\n"
+				+ "skip . . . .  . . . . . . . . . . . . . . . . . . . . . . Skips the currently playing track\r\n"
+				+ "forward, back <Seconds> . . . . . . . . . . . . . . . . . Move a specified number of seconds forward or backward in the song\r\n"
+				+ "seek <Seconds>. . . . . . . . . . . . . . . . . . . . . . Seek to a specified number of seconds into the song\r\n"
+				+ "volume <1-100>. . . . . . . . . . . . . . . . . . . . . . Change the volume of the bot, value in percentage\r\n"
+				+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue" + "```", message.getTextChannel());
 	}
 	
 	private class GlobalDispatcher implements MessageDispatcher

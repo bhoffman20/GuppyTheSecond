@@ -26,9 +26,8 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	private final BlockingDeque<AudioTrack> queue;
 	private final AtomicReference<Message> boxMessage;
 	private final AtomicBoolean creatingBoxMessage;
-
-	public MusicScheduler(AudioPlayer player, MessageDispatcher messageDispatcher,
-			ScheduledExecutorService executorService)
+	
+	public MusicScheduler(AudioPlayer player, MessageDispatcher messageDispatcher, ScheduledExecutorService executorService)
 	{
 		this.player = player;
 		this.messageDispatcher = messageDispatcher;
@@ -36,61 +35,61 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		this.queue = new LinkedBlockingDeque<>();
 		this.boxMessage = new AtomicReference<>();
 		this.creatingBoxMessage = new AtomicBoolean();
-
+		
 		executorService.scheduleAtFixedRate(this, 3000L, 3000L, TimeUnit.MILLISECONDS);
 	}
-
+	
 	public void addToQueue(AudioTrack audioTrack)
 	{
 		queue.addLast(audioTrack);
 		startNextTrack(true);
 	}
-
+	
 	public List<AudioTrack> drainQueue()
 	{
 		List<AudioTrack> drainedQueue = new ArrayList<>();
 		queue.drainTo(drainedQueue);
 		return drainedQueue;
 	}
-
+	
 	public List<AudioTrack> getQueue()
 	{
 		List<AudioTrack> q = new ArrayList<AudioTrack>();
-
+		
 		Iterator i = queue.iterator();
 		while (i.hasNext())
 		{
 			q.add((AudioTrack) i.next());
 		}
-
+		
 		return q;
 	}
-
+	
 	public void playNow(AudioTrack audioTrack, boolean clearQueue)
 	{
 		if (clearQueue)
 		{
 			queue.clear();
 		}
-
+		
 		queue.addFirst(audioTrack);
 		startNextTrack(false);
 	}
-
+	
 	public void playNext(AudioTrack audioTrack)
 	{
 		queue.addFirst(audioTrack);
 	}
-
+	
 	public void skip()
 	{
 		startNextTrack(false);
 	}
-
+	
 	private void startNextTrack(boolean noInterrupt)
 	{
 		AudioTrack next = queue.poll();
-
+		
 		if (next != null)
 		{
 			if (!player.startTrack(next, noInterrupt))
@@ -101,18 +100,19 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		else
 		{
 			player.stopTrack();
-
+			
 			messageDispatcher.sendMessage("Queue finished.");
 			player.destroy();
+			
 		}
 	}
-
+	
 	@Override
 	public void onTrackStart(AudioPlayer player, AudioTrack track)
 	{
 		updateTrackBox(true);
 	}
-
+	
 	@Override
 	public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason)
 	{
@@ -122,46 +122,46 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 			messageDispatcher.sendMessage(String.format("Track %s finished.", track.getInfo().title));
 		}
 	}
-
+	
 	@Override
 	public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs)
 	{
 		messageDispatcher.sendMessage(String.format("Track %s got stuck, skipping.", track.getInfo().title));
-
+		
 		startNextTrack(false);
 	}
-
+	
 	@Override
 	public void onPlayerResume(AudioPlayer player)
 	{
 		updateTrackBox(false);
 	}
-
+	
 	@Override
 	public void onPlayerPause(AudioPlayer player)
 	{
 		updateTrackBox(false);
 	}
-
+	
 	private void updateTrackBox(boolean newMessage)
 	{
 		AudioTrack track = player.getPlayingTrack();
-
+		
 		if (track == null || newMessage)
 		{
 			Message message = boxMessage.getAndSet(null);
-
+			
 			if (message != null)
 			{
 				message.delete();
 			}
 		}
-
+		
 		if (track != null)
 		{
 			Message message = boxMessage.get();
 			String box = TrackBoxBuilder.buildTrackBox(80, track, player.isPaused(), player.getVolume());
-
+			
 			if (message != null)
 			{
 				message.editMessage(box).queue();
@@ -182,11 +182,11 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 			}
 		}
 	}
-
+	
 	@Override
 	public void run()
 	{
 		updateTrackBox(false);
 	}
-
+	
 }
