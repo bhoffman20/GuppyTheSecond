@@ -35,25 +35,31 @@ public class CommandController implements BotController
 	@BotCommandHandler
 	private void ping(Message message)
 	{
-		messageDispatcher.sendMessage("pong", message.getTextChannel());
+		outputChannel.set(message.getTextChannel());
+		Message m = new MessageBuilder().setTTS(true).append("pong").build();
+		
+		message.getTextChannel().sendMessage(m).queue();
 	}
 	
 	@BotCommandHandler
 	private void ching(Message message)
 	{
+		outputChannel.set(message.getTextChannel());
 		messageDispatcher.sendMessage("chong", message.getTextChannel());
 	}
 	
 	@BotCommandHandler
 	private void help(Message message)
 	{
+		outputChannel.set(message.getTextChannel());
 		messageDispatcher.sendMessage("```Commands:\r\n" + "play, playNow, playNext <YouTube link | YouTube search> . Adds a song to the queue\r\n"
 				+ "pause, resume . . . . . . . . . . . . . . . . . . . . . . Pause or resume the playing track\r\n"
 				+ "skip . . . .  . . . . . . . . . . . . . . . . . . . . . . Skips the currently playing track\r\n"
+				+ "shuffle . . . . . . . . . . . . . . . . . . . . . . . . . Shuffle the queue"
 				+ "forward, back <Seconds> . . . . . . . . . . . . . . . . . Move a specified number of seconds forward or backward in the song\r\n"
 				+ "seek <Seconds>. . . . . . . . . . . . . . . . . . . . . . Seek to a specified number of seconds into the song\r\n"
 				+ "volume <1-100>. . . . . . . . . . . . . . . . . . . . . . Change the volume of the bot, value in percentage\r\n"
-				+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue" + "```", message.getTextChannel());
+				+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue\r\n" + "```");
 	}
 	
 	private class GlobalDispatcher implements MessageDispatcher
@@ -94,49 +100,6 @@ public class CommandController implements BotController
 			sendMessage(new MessageBuilder().setEmbed(embed).build().getContent(), tChannel);
 		}
 		
-		public void sendPrivateMessageToUser(String content, User user)
-		{
-			user.openPrivateChannel().queue(c -> sendMessage(content, c));
-		}
-	}
-	
-	private final class FixedDispatcher implements MessageDispatcher
-	{
-		private final TextChannel channel;
-		
-		private FixedDispatcher(TextChannel channel)
-		{
-			this.channel = channel;
-		}
-		
-		@Override
-		public void sendMessage(String message, Consumer<Message> success, Consumer<Throwable> failure)
-		{
-			channel.sendMessage(message).queue(success, failure);
-		}
-		
-		@Override
-		public void sendMessage(String message)
-		{
-			channel.sendMessage(message).queue();
-		}
-		
-		@Override
-		public void sendMessage(String msgContent, MessageChannel tChannel)
-		{
-			if (tChannel == null) return;
-			tChannel.sendMessage(msgContent).queue();
-		}
-		
-		@Override
-		public void sendEmbed(String title, String description, MessageChannel tChannel)
-		{
-			MessageEmbed embed = new EmbedBuilder().setTitle(title, null).setDescription(description).build();
-			
-			sendMessage(new MessageBuilder().setEmbed(embed).build().getContent(), tChannel);
-		}
-		
-		@Override
 		public void sendPrivateMessageToUser(String content, User user)
 		{
 			user.openPrivateChannel().queue(c -> sendMessage(content, c));
