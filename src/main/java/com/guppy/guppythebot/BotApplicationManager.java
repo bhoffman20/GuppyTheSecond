@@ -110,6 +110,7 @@ public class BotApplicationManager extends ListenerAdapter
 		
 		BotGuildContext guildContext = getContext(event.getGuild());
 		
+		
 		controllerManager.dispatchMessage(guildContext.controllers, Bootstrap.CMD_PREFIX, event.getMessage(), new BotCommandMappingHandler()
 		{
 			@Override
@@ -142,7 +143,6 @@ public class BotApplicationManager extends ListenerAdapter
 			public void commandException(Message message, String name, Throwable throwable)
 			{
 				event.getTextChannel().sendMessage("Command threw an exception").queue();
-				;
 				
 				log.error("Command with content {} threw an exception.", message.getContent(), throwable);
 			}

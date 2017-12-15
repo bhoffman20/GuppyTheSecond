@@ -1,10 +1,11 @@
 package com.guppy.guppythebot.music;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,7 +24,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	private final AudioPlayer player;
 	private final MessageDispatcher messageDispatcher;
 	private final ScheduledExecutorService executorService;
-	private final BlockingDeque<AudioTrack> queue;
+	public final BlockingQueue<AudioTrack> queue;
 	private final AtomicReference<Message> boxMessage;
 	private final AtomicBoolean creatingBoxMessage;
 	
@@ -32,7 +33,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		this.player = player;
 		this.messageDispatcher = messageDispatcher;
 		this.executorService = executorService;
-		this.queue = new LinkedBlockingDeque<>();
+		this.queue = new LinkedBlockingQueue<AudioTrack>();
 		this.boxMessage = new AtomicReference<>();
 		this.creatingBoxMessage = new AtomicBoolean();
 		
@@ -41,7 +42,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	
 	public void addToQueue(AudioTrack audioTrack)
 	{
-		queue.addLast(audioTrack);
+		queue.offer(audioTrack);
 		startNextTrack(true);
 	}
 	
@@ -52,17 +53,9 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		return drainedQueue;
 	}
 	
-	public List<AudioTrack> getQueue()
+	public Set<AudioTrack> getQueuedTracks()
 	{
-		List<AudioTrack> q = new ArrayList<AudioTrack>();
-		
-		Iterator i = queue.iterator();
-		while (i.hasNext())
-		{
-			q.add((AudioTrack) i.next());
-		}
-		
-		return q;
+		return new LinkedHashSet<>(queue);
 	}
 	
 	public void playNow(AudioTrack audioTrack, boolean clearQueue)
@@ -72,13 +65,14 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 			queue.clear();
 		}
 		
-		queue.addFirst(audioTrack);
+		queue.offer(audioTrack);
 		startNextTrack(false);
 	}
 	
 	public void playNext(AudioTrack audioTrack)
 	{
-		queue.addFirst(audioTrack);
+		// TODO: Fix this
+		queue.offer(audioTrack);
 	}
 	
 	public void skip()
@@ -94,7 +88,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		{
 			if (!player.startTrack(next, noInterrupt))
 			{
-				queue.add(next);
+				queue.offer(next);
 			}
 		}
 		else
@@ -119,7 +113,8 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		if (endReason.mayStartNext)
 		{
 			startNextTrack(true);
-			messageDispatcher.sendMessage(String.format("Track %s finished.", track.getInfo().title));
+			// messageDispatcher.sendMessage(String.format("Track %s finished.",
+			// track.getInfo().title));
 		}
 	}
 	

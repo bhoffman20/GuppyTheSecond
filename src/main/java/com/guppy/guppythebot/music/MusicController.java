@@ -3,8 +3,12 @@ package com.guppy.guppythebot.music;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -46,7 +50,6 @@ import net.dv8tion.jda.core.entities.MessageChannel;
 import net.dv8tion.jda.core.entities.MessageEmbed;
 import net.dv8tion.jda.core.entities.TextChannel;
 import net.dv8tion.jda.core.entities.User;
-import net.dv8tion.jda.core.entities.VoiceChannel;
 import net.dv8tion.jda.core.managers.AudioManager;
 import net.iharder.Base64;
 
@@ -117,6 +120,7 @@ public class MusicController implements BotController
 	@BotCommandHandler
 	private void reset(Message message)
 	{
+		outputChannel.set(message.getTextChannel());
 		messageDispatcher.sendMessage("Clearing queue...");
 		scheduler.drainQueue();
 		player.destroy();
@@ -148,8 +152,8 @@ public class MusicController implements BotController
 	@BotCommandHandler
 	private void deserialize(Message message, String content) throws IOException
 	{
-		outputChannel.set((TextChannel) message.getChannel());
-		connectToMusicVoiceChannel(guild.getAudioManager());
+		outputChannel.set(message.getTextChannel());
+		connectToVoiceChannel(message);
 		
 		byte[] bytes = Base64.decode(content);
 		
@@ -384,7 +388,7 @@ public class MusicController implements BotController
 	
 	private void addTrack(final Message message, final String identifier, final boolean now, final boolean next)
 	{
-		outputChannel.set((TextChannel) message.getChannel());
+		outputChannel.set(message.getTextChannel());
 		
 		manager.loadItemOrdered(this, identifier, new AudioLoadResultHandler()
 		{
@@ -392,9 +396,9 @@ public class MusicController implements BotController
 			public void trackLoaded(AudioTrack track)
 			{
 				System.out.println("Track Loaded: " + track.getInfo().title);
-				connectToMusicVoiceChannel(guild.getAudioManager());
+				connectToVoiceChannel(message);
 				
-				message.getChannel().sendMessage("Starting now: " + track.getInfo().title).queue();
+				messageDispatcher.sendMessage("Starting now: " + track.getInfo().title);
 				
 				if (now)
 				{
@@ -413,7 +417,6 @@ public class MusicController implements BotController
 			@Override
 			public void playlistLoaded(AudioPlaylist playlist)
 			{
-				System.out.println("Playlist Loaded: " + playlist.getName());
 				AudioTrack selected = playlist.getSelectedTrack();
 				
 				List<AudioTrack> tracks = playlist.getTracks();
@@ -423,14 +426,14 @@ public class MusicController implements BotController
 				}
 				else
 				{
-					message.getChannel().sendMessage("Loaded playlist: " + playlist.getName() + " (" + tracks.size() + ")").queue();
+					messageDispatcher.sendMessage("Loaded playlist: " + playlist.getName() + " (" + tracks.size() + ")");
 				}
 				
-				connectToMusicVoiceChannel(guild.getAudioManager());
+				connectToVoiceChannel(message);
 				
 				if (selected != null)
 				{
-					message.getChannel().sendMessage("Playing track:  " + selected.getInfo().title).queue();
+					message.getChannel().sendMessage("Adding track to queue:  " + selected.getInfo().title).queue();
 				}
 				else
 				{
@@ -486,35 +489,59 @@ public class MusicController implements BotController
 	}
 	
 	@BotCommandHandler
+	public void shuffle()
+	{
+		List<AudioTrack> tQueue = new ArrayList<>(scheduler.getQueuedTracks());
+		AudioTrack current = tQueue.get(0);
+		tQueue.remove(0);
+		Collections.shuffle(tQueue);
+		tQueue.add(0, current);
+		scheduler.drainQueue();
+		scheduler.queue.addAll(tQueue);
+	}
+	
+	@BotCommandHandler
 	private void queue(Message message)
 	{
-		if (scheduler.getQueue().isEmpty())
+		outputChannel.set(message.getTextChannel());
+		
+		if (scheduler.getQueuedTracks().isEmpty())
 		{
-			messageDispatcher.sendMessage("Queue is empty");
+			if (null == player.getPlayingTrack())
+			{
+				messageDispatcher.sendMessage("Queue is empty");
+			}
+			else
+			{
+				String embedTitle = String.format(QUEUE_INFO, 1);
+				messageDispatcher.sendMessage(embedTitle + "\n**>** " + buildQueueMessage(player.getPlayingTrack()), message.getTextChannel());
+			}
+			
 		}
 		else
 		{
 			StringBuilder sb = new StringBuilder();
-			List<AudioTrack> queue = scheduler.getQueue();
+			Set<AudioTrack> queue = scheduler.getQueuedTracks();
 			
-			for (AudioTrack track : queue)
-			{
-				System.out.println(buildQueueMessage(track));
-				sb.append(buildQueueMessage(track));
-			}
+			queue.forEach(t -> sb.append(buildQueueMessage(t)));
+			// for (AudioTrack track : queue)
+			// {
+			// System.out.println(buildQueueMessage(track));
+			// sb.append(buildQueueMessage(track));
+			// }
 			
-			String embedTitle = String.format(QUEUE_INFO, queue.size());
+			String embedTitle = String.format(QUEUE_INFO, queue.size() + 1);
 			
 			if (sb.length() <= 1960)
 			{
-				messageDispatcher.sendMessage(embedTitle + "\n**>** " + sb.toString(), message.getTextChannel());
+				messageDispatcher.sendMessage(embedTitle + "\n**>** " + buildQueueMessage(player.getPlayingTrack()) + sb.toString(), message.getTextChannel());
 			}
-			else /* if (sb.length() <= 20000) */
+			else /* if (sb.length() <= 2000) */
 			{
 				try
 				{
 					sb.setLength(sb.length() - 1);
-					HttpResponse response = Unirest.post("https://hastebin.com/documents").body(sb.toString()).asString();
+					HttpResponse<String> response = Unirest.post("https://hastebin.com/documents").body(sb.toString()).asString();
 					messageDispatcher.sendMessage(
 							embedTitle + "\n[Click here for a detailed list](https://hastebin.com/" + new JSONObject(response.getBody().toString()).getString("key") + ")",
 							message.getTextChannel());
@@ -551,17 +578,18 @@ public class MusicController implements BotController
 		return (hours == 0 ? "" : hours + ":") + String.format("%02d", mins) + ":" + String.format("%02d", seconds);
 	}
 	
-	private static void connectToMusicVoiceChannel(AudioManager audioManager)
+	private void connectToVoiceChannel(Message message)
 	{
+		AudioManager audioManager = message.getGuild().getAudioManager();
 		if (!audioManager.isConnected() && !audioManager.isAttemptingToConnect())
 		{
-			for (VoiceChannel voiceChannel : audioManager.getGuild().getVoiceChannels())
+			if (!message.getMember().getVoiceState().inVoiceChannel())
 			{
-				if (voiceChannel.getName().equals("Music"))
-				{
-					audioManager.openAudioConnection(voiceChannel);
-					break;
-				}
+				messageDispatcher.sendMessage("User must be in a voice channel to request a song.");
+			}
+			else
+			{
+				audioManager.openAudioConnection(message.getMember().getVoiceState().getChannel());
 			}
 		}
 	}
@@ -573,6 +601,27 @@ public class MusicController implements BotController
 	
 	private class GlobalDispatcher implements MessageDispatcher
 	{
+		private HashMap<TextChannel, FixedDispatcher> dispatchers;
+		
+		/* Call this to get the dispatcher for the text channel. */
+		@SuppressWarnings("unused")
+		public FixedDispatcher getFixedFromMessage(Message message)
+		{
+			if (dispatchers.containsKey(message.getTextChannel()))
+			{
+				return dispatchers.get(message.getTextChannel());
+			}
+			else
+			{
+				System.out.println("Creating new dispatcher for channel: " + message.getTextChannel().getName());
+				FixedDispatcher dispatcher = new FixedDispatcher(message.getTextChannel());
+				dispatchers.put(message.getTextChannel(), dispatcher);
+				return dispatcher;
+			}
+		}
+		
+		
+		/* Only use this if outputchannel is not null */
 		@Override
 		public void sendMessage(String message, Consumer<Message> success, Consumer<Throwable> failure)
 		{
@@ -582,8 +631,14 @@ public class MusicController implements BotController
 			{
 				channel.sendMessage(message).queue(success, failure);
 			}
+			else
+			{
+				System.out.println("WARNING: Tried to send a message to a null output channel!");
+			}
 		}
 		
+		
+		/* Only use this if outputchannel is not null */
 		@Override
 		public void sendMessage(String message)
 		{
@@ -593,11 +648,19 @@ public class MusicController implements BotController
 			{
 				channel.sendMessage(message).queue();
 			}
+			else
+			{
+				System.out.println("WARNING: Tried to send a message to a null output channel!");
+			}
 		}
 		
 		public void sendMessage(String msgContent, MessageChannel tChannel)
 		{
-			if (tChannel == null) return;
+			if (tChannel == null)
+			{
+				System.out.println("WARNING: Tried to send a message to a null output channel!");
+				return;
+			}
 			tChannel.sendMessage(msgContent).queue();
 		}
 		
@@ -609,49 +672,6 @@ public class MusicController implements BotController
 			sendMessage(new MessageBuilder().setEmbed(embed).build().getContent(), tChannel);
 		}
 		
-		public void sendPrivateMessageToUser(String content, User user)
-		{
-			user.openPrivateChannel().queue(c -> sendMessage(content, c));
-		}
-	}
-	
-	private final class FixedDispatcher implements MessageDispatcher
-	{
-		private final TextChannel channel;
-		
-		private FixedDispatcher(TextChannel channel)
-		{
-			this.channel = channel;
-		}
-		
-		@Override
-		public void sendMessage(String message, Consumer<Message> success, Consumer<Throwable> failure)
-		{
-			channel.sendMessage(message).queue(success, failure);
-		}
-		
-		@Override
-		public void sendMessage(String message)
-		{
-			channel.sendMessage(message).queue();
-		}
-		
-		@Override
-		public void sendMessage(String msgContent, MessageChannel tChannel)
-		{
-			if (tChannel == null) return;
-			tChannel.sendMessage(msgContent).queue();
-		}
-		
-		@Override
-		public void sendEmbed(String title, String description, MessageChannel tChannel)
-		{
-			MessageEmbed embed = new EmbedBuilder().setTitle(title, null).setDescription(description).build();
-			
-			sendMessage(new MessageBuilder().setEmbed(embed).build().getContent(), tChannel);
-		}
-		
-		@Override
 		public void sendPrivateMessageToUser(String content, User user)
 		{
 			user.openPrivateChannel().queue(c -> sendMessage(content, c));
