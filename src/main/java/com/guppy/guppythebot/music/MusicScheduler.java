@@ -82,13 +82,13 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	
 	private void startNextTrack(boolean noInterrupt)
 	{
-		AudioTrack next = queue.poll();
+		AudioTrack next = queue.peek();
 		
 		if (next != null)
 		{
-			if (!player.startTrack(next, noInterrupt))
+			if (player.startTrack(next, noInterrupt))
 			{
-				queue.offer(next);
+				queue.remove(next);
 			}
 		}
 		else
@@ -97,7 +97,6 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 			
 			messageDispatcher.sendMessage("Queue finished.");
 			player.destroy();
-			
 		}
 	}
 	
