@@ -18,117 +18,119 @@ public class BotControllerManager
 {
 	private final List<BotControllerFactory> controllerFactories;
 	private final Map<String, Command> commands;
-
+	
 	public BotControllerManager()
 	{
 		controllerFactories = new ArrayList<>();
 		commands = new HashMap<>();
 	}
-
+	
 	public void registerController(BotControllerFactory factory)
 	{
 		controllerFactories.add(factory);
-
+		
 		Class<?> controllerClass = factory.getControllerClass();
-
+		
 		for (Method method : controllerClass.getDeclaredMethods())
 		{
 			BotCommandHandler annotation = method.getAnnotation(BotCommandHandler.class);
-
+			
 			if (annotation != null)
 			{
 				registerControllerMethod(controllerClass, method, annotation);
 			}
 		}
 	}
-
+	
 	private void registerControllerMethod(Class<?> controllerClass, Method method, BotCommandHandler annotation)
 	{
 		String commandName = annotation.name().isEmpty() ? method.getName().toLowerCase() : annotation.name();
 		String usage = annotation.usage().isEmpty() ? null : annotation.usage();
-
+		
 		Parameter[] methodParameters = method.getParameters();
 		if (methodParameters.length == 0 || !methodParameters[0].getType().isAssignableFrom(Message.class))
 		{
 			return;
 		}
-
+		
 		method.setAccessible(true);
-
+		
 		List<Class<?>> parameters = new ArrayList<>();
 		for (int i = 1; i < methodParameters.length; i++)
 		{
 			parameters.add(methodParameters[i].getType());
 		}
-
+		
 		Command command = new Command(commandName, usage, parameters, controllerClass, method);
 		commands.put(command.name, command);
 	}
-
-	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, String prefix,
-			Message message, BotCommandMappingHandler handler)
+	
+	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, String prefix, Message message, BotCommandMappingHandler handler)
 	{
-
 		String content = message.getContent().trim();
-		String[] separated = content.split("\\s+", 2);
-
-		if (!separated[0].startsWith(prefix))
+		
+		if (!content.startsWith(prefix))
 		{
 			return;
 		}
-
-		String commandName = separated[0].substring(prefix.length());
-		Command command = commands.get(commandName);
-
-		if (command == null)
+		content = content.substring(prefix.length()).toLowerCase();
+		
+		String[] batchCommands = content.split(";");
+		System.out.println(batchCommands.length);
+		
+		for (String cmd : batchCommands)
 		{
-			handler.commandNotFound(message, commandName);
-			return;
-		}
-
-		String[] inputArguments = separated.length == 1 ? new String[0]
-				: separated[1].split("\\s+", command.parameters.size());
-
-		if (inputArguments.length != command.parameters.size())
-		{
-			handler.commandWrongParameterCount(message, command.name, command.usage, inputArguments.length,
-					command.parameters.size());
-			return;
-		}
-
-		Object[] arguments = new Object[command.parameters.size() + 1];
-		arguments[0] = message;
-
-		for (int i = 0; i < command.parameters.size(); i++)
-		{
-			Class<?> parameterClass = command.parameters.get(i);
-
-			try
+			String[] separated = cmd.split("\\s+", 2);
+			String commandName = separated[0].trim();
+			
+			Command command = commands.get(commandName);
+			if (command == null)
 			{
-				arguments[i + 1] = parseArgument(parameterClass, inputArguments[i]);
-			}
-			catch (IllegalArgumentException ignored)
-			{
-				handler.commandWrongParameterType(message, command.name, command.usage, i, inputArguments[i],
-						parameterClass);
+				handler.commandNotFound(message, commandName);
 				return;
 			}
-		}
-
-		try
-		{
-			command.commandMethod.invoke(instances.get(command.controllerClass), arguments);
-		}
-		catch (InvocationTargetException e)
-		{
-			handler.commandException(message, command.name, e.getCause());
-		}
-		catch (IllegalAccessException e)
-		{
-			throw new RuntimeException(e);
+			
+			String[] inputArguments = separated.length == 1 ? new String[0] : separated[1].split("\\s+", command.parameters.size());
+			
+			if (inputArguments.length != command.parameters.size())
+			{
+				handler.commandWrongParameterCount(message, command.name, command.usage, inputArguments.length, command.parameters.size());
+				return;
+			}
+			
+			Object[] arguments = new Object[command.parameters.size() + 1];
+			arguments[0] = message;
+			
+			for (int i = 0; i < command.parameters.size(); i++)
+			{
+				Class<?> parameterClass = command.parameters.get(i);
+				
+				try
+				{
+					arguments[i + 1] = parseArgument(parameterClass, inputArguments[i]);
+				}
+				catch (IllegalArgumentException ignored)
+				{
+					handler.commandWrongParameterType(message, command.name, command.usage, i, inputArguments[i], parameterClass);
+					return;
+				}
+			}
+			
+			try
+			{
+				command.commandMethod.invoke(instances.get(command.controllerClass), arguments);
+			}
+			catch (InvocationTargetException e)
+			{
+				handler.commandException(message, command.name, e.getCause());
+			}
+			catch (IllegalAccessException e)
+			{
+				throw new RuntimeException(e);
+			}
 		}
 	}
-
+	
 	private Object parseArgument(Class<?> parameterClass, String value)
 	{
 		try
@@ -167,7 +169,7 @@ public class BotControllerManager
 			throw new IllegalArgumentException();
 		}
 	}
-
+	
 	private boolean parseBooleanArgument(String value)
 	{
 		if ("yes".equals(value) || "true".equals(value))
@@ -181,7 +183,7 @@ public class BotControllerManager
 		else
 		{
 			int integerValue = Integer.valueOf(value);
-
+			
 			if (integerValue == 1)
 			{
 				return true;
@@ -196,9 +198,8 @@ public class BotControllerManager
 			}
 		}
 	}
-
-	public List<BotController> createControllers(BotApplicationManager applicationManager, BotGuildContext context,
-			Guild guild)
+	
+	public List<BotController> createControllers(BotApplicationManager applicationManager, BotGuildContext context, Guild guild)
 	{
 		List<BotController> controllers = new ArrayList<>();
 		for (BotControllerFactory factory : controllerFactories)
@@ -207,7 +208,7 @@ public class BotControllerManager
 		}
 		return controllers;
 	}
-
+	
 	private static class Command
 	{
 		private final String name;
@@ -215,9 +216,8 @@ public class BotControllerManager
 		private final List<Class<?>> parameters;
 		private final Class<?> controllerClass;
 		private final Method commandMethod;
-
-		private Command(String name, String usage, List<Class<?>> parameters, Class<?> controllerClass,
-				Method commandMethod)
+		
+		private Command(String name, String usage, List<Class<?>> parameters, Class<?> controllerClass, Method commandMethod)
 		{
 			this.name = name;
 			this.usage = usage;

@@ -18,3 +18,5 @@ bot.properties
 dependency-reduced-pom.xml
 README.md
 .settings/
+*.bat
+data/

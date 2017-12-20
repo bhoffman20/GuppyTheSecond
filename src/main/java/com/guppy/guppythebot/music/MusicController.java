@@ -79,8 +79,9 @@ public class MusicController implements BotController
 		outputChannel = new AtomicReference<>();
 		
 		messageDispatcher = new GlobalDispatcher();
-		scheduler = new MusicScheduler(player, messageDispatcher, manager.getExecutorService());
+		scheduler = new MusicScheduler(player, messageDispatcher, manager.getExecutorService(), guild);
 		
+		player.setVolume(50);
 		player.addListener(scheduler);
 	}
 	
@@ -176,6 +177,12 @@ public class MusicController implements BotController
 	}
 	
 	@BotCommandHandler
+	private void vol(Message message, int volume)
+	{
+		volume(message, volume);
+	}
+	
+	@BotCommandHandler
 	private void nodes(Message message, String addressList)
 	{
 		manager.useRemoteNodes(addressList.split(" "));
@@ -234,7 +241,7 @@ public class MusicController implements BotController
 	{
 		forPlayingTrack(track ->
 		{
-			message.getChannel().sendMessage("Duration is " + track.getDuration()).queue();
+			message.getChannel().sendMessage("Duration is " + track.getDuration() / 1000).queue();
 		});
 	}
 	
@@ -280,6 +287,7 @@ public class MusicController implements BotController
 	@BotCommandHandler
 	private void version(Message message)
 	{
+		// TODO: Make this return the bot version
 		message.getChannel().sendMessage(PlayerLibrary.VERSION).queue();
 	}
 	
@@ -602,23 +610,6 @@ public class MusicController implements BotController
 	private class GlobalDispatcher implements MessageDispatcher
 	{
 		private HashMap<TextChannel, FixedDispatcher> dispatchers;
-		
-		/* Call this to get the dispatcher for the text channel. */
-		@SuppressWarnings("unused")
-		public FixedDispatcher getFixedFromMessage(Message message)
-		{
-			if (dispatchers.containsKey(message.getTextChannel()))
-			{
-				return dispatchers.get(message.getTextChannel());
-			}
-			else
-			{
-				System.out.println("Creating new dispatcher for channel: " + message.getTextChannel().getName());
-				FixedDispatcher dispatcher = new FixedDispatcher(message.getTextChannel());
-				dispatchers.put(message.getTextChannel(), dispatcher);
-				return dispatcher;
-			}
-		}
 		
 		
 		/* Only use this if outputchannel is not null */

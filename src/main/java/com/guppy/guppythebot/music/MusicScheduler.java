@@ -17,6 +17,7 @@ import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 
+import net.dv8tion.jda.core.entities.Guild;
 import net.dv8tion.jda.core.entities.Message;
 
 public class MusicScheduler extends AudioEventAdapter implements Runnable
@@ -27,8 +28,10 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	public final BlockingQueue<AudioTrack> queue;
 	private final AtomicReference<Message> boxMessage;
 	private final AtomicBoolean creatingBoxMessage;
+	private final Guild guild;
 	
-	public MusicScheduler(AudioPlayer player, MessageDispatcher messageDispatcher, ScheduledExecutorService executorService)
+	
+	public MusicScheduler(AudioPlayer player, MessageDispatcher messageDispatcher, ScheduledExecutorService executorService, Guild guild)
 	{
 		this.player = player;
 		this.messageDispatcher = messageDispatcher;
@@ -36,8 +39,9 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		this.queue = new LinkedBlockingQueue<AudioTrack>();
 		this.boxMessage = new AtomicReference<>();
 		this.creatingBoxMessage = new AtomicBoolean();
+		this.guild = guild;
 		
-		executorService.scheduleAtFixedRate(this, 3000L, 3000L, TimeUnit.MILLISECONDS);
+		this.executorService.scheduleAtFixedRate(this, 3000L, 3000L, TimeUnit.MILLISECONDS);
 	}
 	
 	public void addToQueue(AudioTrack audioTrack)
@@ -93,10 +97,9 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		}
 		else
 		{
-			player.stopTrack();
-			
 			messageDispatcher.sendMessage("Queue finished.");
 			player.destroy();
+			guild.getAudioManager().closeAudioConnection();
 		}
 	}
 	

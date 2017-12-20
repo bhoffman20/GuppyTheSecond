@@ -26,13 +26,10 @@ import com.sedmelluq.discord.lavaplayer.source.vimeo.VimeoAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.tools.DaemonThreadFactory;
 
-import net.dv8tion.jda.core.MessageBuilder;
 import net.dv8tion.jda.core.entities.ChannelType;
 import net.dv8tion.jda.core.entities.Guild;
 import net.dv8tion.jda.core.entities.Message;
 import net.dv8tion.jda.core.events.guild.GuildLeaveEvent;
-import net.dv8tion.jda.core.events.guild.voice.GuildVoiceJoinEvent;
-import net.dv8tion.jda.core.events.guild.voice.GuildVoiceLeaveEvent;
 import net.dv8tion.jda.core.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.core.hooks.ListenerAdapter;
 
@@ -103,25 +100,41 @@ public class BotApplicationManager extends ListenerAdapter
 		return context;
 	}
 	
-	@Override
-	public void onGuildVoiceJoin(GuildVoiceJoinEvent event)
-	{
-		Message m = new MessageBuilder().setTTS(true).append(event.getMember().getNickname()).append(" joined ").append(event.getChannelJoined().getName()).build();
-		
-		event.getGuild().getTextChannels().get(0).sendMessage(m).queue();
-		m.delete();
-		super.onGuildVoiceJoin(event);
-	}
-	
-	@Override
-	public void onGuildVoiceLeave(GuildVoiceLeaveEvent event)
-	{
-		Message m = new MessageBuilder().setTTS(true).append(event.getMember().getNickname()).append(" left ").append(event.getChannelLeft().getName()).build();
-		
-		event.getGuild().getTextChannels().get(0).sendMessage(m).queue();
-		m.delete();
-		super.onGuildVoiceLeave(event);
-	}
+	// @Override
+	// public void onGuildVoiceJoin(GuildVoiceJoinEvent event)
+	// {
+	// if
+	// (!event.getMember().getRoles().contains(event.getGuild().getRolesByName("BOT",
+	// true).get(0)))
+	// {
+	// Message m = new
+	// MessageBuilder().setTTS(true).append(event.getMember().getEffectiveName()).append("
+	// joined ").append(event.getChannelJoined().getName()).build();
+	//
+	// event.getGuild().getTextChannels().get(0).sendMessage(m).queue();
+	// m.delete();
+	// }
+	//
+	// super.onGuildVoiceJoin(event);
+	// }
+	//
+	// @Override
+	// public void onGuildVoiceLeave(GuildVoiceLeaveEvent event)
+	// {
+	// if
+	// (!event.getMember().getRoles().contains(event.getGuild().getRolesByName("BOT",
+	// true).get(0)))
+	// {
+	// Message m = new
+	// MessageBuilder().setTTS(true).append(event.getMember().getEffectiveName()).append("
+	// left ").append(event.getChannelLeft().getName()).build();
+	//
+	// event.getGuild().getTextChannels().get(0).sendMessage(m).queue();
+	// m.delete();
+	// }
+	//
+	// super.onGuildVoiceLeave(event);
+	// }
 	
 	@Override
 	public void onMessageReceived(final MessageReceivedEvent event)
