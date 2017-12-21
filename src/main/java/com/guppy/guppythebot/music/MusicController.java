@@ -81,7 +81,7 @@ public class MusicController implements BotController
 		messageDispatcher = new GlobalDispatcher();
 		scheduler = new MusicScheduler(player, messageDispatcher, manager.getExecutorService(), guild);
 		
-		player.setVolume(50);
+		player.setVolume(69);
 		player.addListener(scheduler);
 	}
 	
