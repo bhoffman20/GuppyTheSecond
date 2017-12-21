@@ -80,6 +80,7 @@ public class BotControllerManager
 		
 		for (String cmd : batchCommands)
 		{
+			cmd = cmd.trim();
 			String[] separated = cmd.split("\\s+", 2);
 			String commandName = separated[0].trim();
 			

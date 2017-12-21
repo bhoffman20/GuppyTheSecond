@@ -5,8 +5,11 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -14,6 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -62,6 +67,16 @@ public class CommandController implements BotController
 	{
 		outputChannel.set(message.getTextChannel());
 		messageDispatcher.sendMessage("chong", message.getTextChannel());
+	}
+	
+	@BotCommandHandler
+	private void timer(Message message, int timerMinutes)
+	{
+		outputChannel.set(message.getTextChannel());
+		
+		BotTimer t = new BotTimer(message, timerMinutes * 60 * 1000L);
+		Timer timer = new Timer(true);
+		timer.schedule(t, 0);
 	}
 	
 	@BotCommandHandler
@@ -181,7 +196,7 @@ public class CommandController implements BotController
 			
 			TreeMap<String, Integer> map = new TreeMap<String, Integer>();
 			
-			Iterator it = prop.stringPropertyNames().iterator();
+			Iterator<?> it = prop.stringPropertyNames().iterator();
 			while (it.hasNext())
 			{
 				String id = (String) it.next();
@@ -193,20 +208,12 @@ public class CommandController implements BotController
 				map.put(user, intVal);
 			}
 			
-			System.out.println(map.toString());
-			
-			// Sort the map
-			// Comparator<String> comparator = new ValueComparator<String, Integer>(map);
-			// TreeMap<String, Integer> result = new TreeMap<String, Integer>(comparator);
-			// result.putAll(map);
-			
-			Map<String, Integer> result = sortByValue(map);
-			// System.out.println(result.toString());
+			Map<String, Integer> result = sortReportMapByValue(map);
 			
 			MessageBuilder mb = new MessageBuilder();
 			mb.append("```");
 			
-			Iterator iter = result.entrySet().iterator();
+			Iterator<?> iter = result.entrySet().iterator();
 			while (iter.hasNext())
 			{
 				Entry<String, Integer> ent = (Entry<String, Integer>) iter.next();
@@ -230,7 +237,7 @@ public class CommandController implements BotController
 		}
 	}
 	
-	public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map)
+	public static <K, V extends Comparable<? super V>> Map<K, V> sortReportMapByValue(Map<K, V> map)
 	{
 		List<Map.Entry<K, V>> list = new LinkedList<>(map.entrySet());
 		Collections.sort(list, new Comparator<Map.Entry<K, V>>()
@@ -258,12 +265,14 @@ public class CommandController implements BotController
 				"```Command Prefix: **" + Bootstrap.CMD_PREFIX + "** Commands:\r\n" + "play, playNow, playNext <YouTube link | YouTube search> . Adds a song to the queue\r\n"
 						+ "pause, resume . . . . . . . . . . . . . . . . . . . . . . Pause or resume the playing track\r\n"
 						+ "skip . . . .  . . . . . . . . . . . . . . . . . . . . . . Skips the currently playing track\r\n"
-						+ "shuffle . . . . . . . . . . . . . . . . . . . . . . . . . Shuffle the queue"
+						+ "shuffle . . . . . . . . . . . . . . . . . . . . . . . . . Shuffle the queue\r\n"
 						+ "forward, back <Seconds> . . . . . . . . . . . . . . . . . Move a specified number of seconds forward or backward in the song\r\n"
 						+ "seek <Seconds>. . . . . . . . . . . . . . . . . . . . . . Seek to a specified number of seconds into the song\r\n"
 						+ "volume <1-100>. . . . . . . . . . . . . . . . . . . . . . Change the volume of the bot, value in percentage\r\n"
 						+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue\r\n"
-						+ "report <@User>. . . . . . . . . . . . . . . . . . . . . . Report a user for being a bitch\r\n" + "```");
+						+ "report <@User>. . . . . . . . . . . . . . . . . . . . . . Report a user for being a bitch\r\n"
+						+ "rep . . . . . . . . . . . . . . . . . . . . . . . . . . . Displays how many times each user has been reported\r\n"
+						+ "timer <Minutes> . . . . . . . . . . . . . . . . . . . . . Set a timer for a specified number of minutes (Unstable)\r\n" + "```");
 	}
 	
 	private class GlobalDispatcher implements MessageDispatcher
@@ -322,6 +331,67 @@ public class CommandController implements BotController
 		public CommandController create(BotApplicationManager manager, BotGuildContext state, Guild guild)
 		{
 			return new CommandController(manager, state, guild);
+		}
+	}
+	
+	public class BotTimer extends TimerTask
+	{
+		public BotTimer(Message mes, Long time)
+		{
+			this.timeInMillis = time;
+			this.message = mes;
+		}
+		
+		private Message message;
+		private final Long timeInMillis;
+		
+		@Override
+		public void run()
+		{
+			Long currentTime = Calendar.getInstance().getTimeInMillis();
+			
+			
+			SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+			Date now = new Date();
+			String startDate = timeFormat.format(now);
+			
+			Date later = new Date();
+			later.setTime(currentTime + timeInMillis);
+			String endDate = timeFormat.format(later);
+			
+			message.getTextChannel().sendMessage("Timer started at: " + startDate + " for " + timeInMillis / 1000 / 60 + " minutes. " + "End Time: " + endDate).queue();
+			
+			completeTask();
+			
+			Date done = new Date();
+			String doneDate = timeFormat.format(done);
+			
+			int messageCount = 5;
+			for (int i = 0; i < messageCount; i++)
+			{
+				MessageBuilder m = new MessageBuilder().append(message.getAuthor()).append(" Your timer has finished! End Time: " + doneDate);
+				
+				message.getAuthor().openPrivateChannel().complete().sendMessage(m.build()).queue();
+				try
+				{
+					Thread.sleep(1500);
+				}
+				catch (InterruptedException e)
+				{
+				}
+			}
+		}
+		
+		private void completeTask()
+		{
+			try
+			{
+				Thread.sleep(timeInMillis);
+			}
+			catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
 		}
 	}
 	
