@@ -1,12 +1,14 @@
 package com.guppy.guppythebot.controller;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.guppy.guppythebot.BotApplicationManager;
 import com.guppy.guppythebot.BotGuildContext;
@@ -18,6 +20,8 @@ public class BotControllerManager
 {
 	private final List<BotControllerFactory> controllerFactories;
 	private final Map<String, Command> commands;
+	private static final Logger LOG = LogManager.getLogger(BotControllerManager.class);
+	
 	
 	public BotControllerManager()
 	{
@@ -44,7 +48,7 @@ public class BotControllerManager
 	
 	private void registerControllerMethod(Class<?> controllerClass, Method method, BotCommandHandler annotation)
 	{
-		String commandName = annotation.name().isEmpty() ? method.getName().toLowerCase() : annotation.name();
+		String commandName = annotation.name().isEmpty() ? method.getName() : annotation.name();
 		String usage = annotation.usage().isEmpty() ? null : annotation.usage();
 		
 		Parameter[] methodParameters = method.getParameters();
@@ -65,25 +69,29 @@ public class BotControllerManager
 		commands.put(command.name, command);
 	}
 	
-	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, String prefix, Message message, BotCommandMappingHandler handler)
+	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, List<String> prefixList, Message message, BotCommandMappingHandler handler)
 	{
 		String content = message.getContent().trim();
+		String prefix = "";
 		
-		if (!content.startsWith(prefix))
+		for (String p : prefixList)
 		{
-			return;
+			if (content.startsWith(p))
+			{
+				prefix = p;
+				break;
+			}
 		}
-		content = content.substring(prefix.length()).toLowerCase();
+		
+		content = content.substring(prefix.length());
 		
 		String[] batchCommands = content.split(";");
-		System.out.println(batchCommands.length);
 		
 		for (String cmd : batchCommands)
 		{
 			cmd = cmd.trim();
 			String[] separated = cmd.split("\\s+", 2);
 			String commandName = separated[0].trim();
-			
 			Command command = commands.get(commandName);
 			if (command == null)
 			{
@@ -121,14 +129,11 @@ public class BotControllerManager
 			{
 				command.commandMethod.invoke(instances.get(command.controllerClass), arguments);
 			}
-			catch (InvocationTargetException e)
+			catch (Exception e)
 			{
 				handler.commandException(message, command.name, e.getCause());
 			}
-			catch (IllegalAccessException e)
-			{
-				throw new RuntimeException(e);
-			}
+			
 		}
 	}
 	

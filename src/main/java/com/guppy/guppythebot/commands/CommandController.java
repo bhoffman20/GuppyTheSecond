@@ -98,11 +98,11 @@ public class CommandController implements BotController
 		}
 		catch (FileNotFoundException fnf)
 		{
-			System.out.println("Could not find UserReports.properties.");
+			System.out.println("Could not find ReportedUsers.properties.");
 		}
 		catch (IOException e)
 		{
-			System.out.println("Could not load the UserReports.properties file.");
+			System.out.println("Could not load the ReportedUsers.properties file.");
 		}
 		
 		if (!message.getMentionedUsers().isEmpty())
@@ -134,7 +134,7 @@ public class CommandController implements BotController
 			messageDispatcher.sendMessage("You can't report no one. You have been reported.");
 			
 			String originalProp = prop.getProperty(message.getAuthor().getId());
-			int newVal = 0;
+			int newVal = 1;
 			
 			if (null != originalProp && !originalProp.isEmpty())
 			{
@@ -261,18 +261,18 @@ public class CommandController implements BotController
 	private void help(Message message)
 	{
 		outputChannel.set(message.getTextChannel());
-		messageDispatcher.sendMessage(
-				"```Command Prefix: **" + Bootstrap.CMD_PREFIX + "** Commands:\r\n" + "play, playNow, playNext <YouTube link | YouTube search> . Adds a song to the queue\r\n"
-						+ "pause, resume . . . . . . . . . . . . . . . . . . . . . . Pause or resume the playing track\r\n"
-						+ "skip . . . .  . . . . . . . . . . . . . . . . . . . . . . Skips the currently playing track\r\n"
-						+ "shuffle . . . . . . . . . . . . . . . . . . . . . . . . . Shuffle the queue\r\n"
-						+ "forward, back <Seconds> . . . . . . . . . . . . . . . . . Move a specified number of seconds forward or backward in the song\r\n"
-						+ "seek <Seconds>. . . . . . . . . . . . . . . . . . . . . . Seek to a specified number of seconds into the song\r\n"
-						+ "volume <1-100>. . . . . . . . . . . . . . . . . . . . . . Change the volume of the bot, value in percentage\r\n"
-						+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue\r\n"
-						+ "report <@User>. . . . . . . . . . . . . . . . . . . . . . Report a user for being a bitch\r\n"
-						+ "rep . . . . . . . . . . . . . . . . . . . . . . . . . . . Displays how many times each user has been reported\r\n"
-						+ "timer <Minutes> . . . . . . . . . . . . . . . . . . . . . Set a timer for a specified number of minutes (Unstable)\r\n" + "```");
+		messageDispatcher.sendMessage("```Command Prefix: **" + Bootstrap.CMD_PREFIX.toString() + "** Commands:\r\n"
+				+ "play, playNow, playNext <YouTube link | YouTube search> . Adds a song to the queue\r\n"
+				+ "pause, resume . . . . . . . . . . . . . . . . . . . . . . Pause or resume the playing track\r\n"
+				+ "skip . . . .  . . . . . . . . . . . . . . . . . . . . . . Skips the currently playing track\r\n"
+				+ "shuffle . . . . . . . . . . . . . . . . . . . . . . . . . Shuffle the queue\r\n"
+				+ "forward, back <Seconds> . . . . . . . . . . . . . . . . . Move a specified number of seconds forward or backward in the song\r\n"
+				+ "seek <Seconds>. . . . . . . . . . . . . . . . . . . . . . Seek to a specified number of seconds into the song\r\n"
+				+ "volume <1-100>. . . . . . . . . . . . . . . . . . . . . . Change the volume of the bot, value in percentage\r\n"
+				+ "queue, q. . . . . . . . . . . . . . . . . . . . . . . . . Displays the queue\r\n"
+				+ "report <@User>. . . . . . . . . . . . . . . . . . . . . . Report a user for being a bitch\r\n"
+				+ "rep . . . . . . . . . . . . . . . . . . . . . . . . . . . Displays how many times each user has been reported\r\n"
+				+ "timer <Minutes> . . . . . . . . . . . . . . . . . . . . . Set a timer for a specified number of minutes (Unstable)\r\n" + "```");
 	}
 	
 	private class GlobalDispatcher implements MessageDispatcher

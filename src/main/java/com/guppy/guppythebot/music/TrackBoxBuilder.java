@@ -72,7 +72,15 @@ public class TrackBoxBuilder
 		builder.append(" [");
 		for (int i = 0; i < barLength; i++)
 		{
-			builder.append(i < progressBlocks ? PROGRESS_FILL : PROGRESS_EMPTY);
+			// If the song has less than 3 seconds left, fill all the blocks
+			if (i < progressBlocks || (track.getDuration() - track.getPosition()) < 3000)
+			{
+				builder.append(PROGRESS_FILL);
+			}
+			else
+			{
+				builder.append(PROGRESS_EMPTY);
+			}
 		}
 		builder.append("]");
 		

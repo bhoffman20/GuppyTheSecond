@@ -165,7 +165,6 @@ public class BotApplicationManager extends ListenerAdapter
 			public void commandWrongParameterType(Message message, String name, String usage, int index, String value, Class<?> expectedType)
 			{
 				event.getTextChannel().sendMessage("Wrong argument type for command").queue();
-				;
 			}
 			
 			@Override

@@ -9,13 +9,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
+import com.guppy.guppythebot.Bootstrap;
 import com.guppy.guppythebot.BotApplicationManager;
 import com.guppy.guppythebot.BotGuildContext;
 import com.guppy.guppythebot.MessageDispatcher;
@@ -41,6 +48,12 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrackInfo;
 import com.sedmelluq.discord.lavaplayer.track.DecodedTrackHolder;
 import com.sedmelluq.discord.lavaplayer.track.TrackMarker;
 import com.sedmelluq.discord.lavaplayer.udpqueue.natives.UdpQueueManager;
+import com.wrapper.spotify.Api;
+import com.wrapper.spotify.exceptions.WebApiException;
+import com.wrapper.spotify.methods.PlaylistRequest;
+import com.wrapper.spotify.methods.authentication.ClientCredentialsGrantRequest;
+import com.wrapper.spotify.models.ClientCredentials;
+import com.wrapper.spotify.models.PlaylistTrack;
 
 import net.dv8tion.jda.core.EmbedBuilder;
 import net.dv8tion.jda.core.MessageBuilder;
@@ -55,7 +68,7 @@ import net.iharder.Base64;
 
 public class MusicController implements BotController
 {
-	private static final Logger log = LoggerFactory.getLogger(MusicController.class);
+	private static final Logger LOG = LogManager.getLogger(MusicController.class);
 	
 	private final AudioPlayerManager manager;
 	private final AudioPlayer player;
@@ -63,6 +76,8 @@ public class MusicController implements BotController
 	private final MusicScheduler scheduler;
 	private final MessageDispatcher messageDispatcher;
 	private final Guild guild;
+	public static ScheduledExecutorService globalExecutorService = Executors.newScheduledThreadPool(20);
+	protected static Api spotifyApi;
 	
 	protected static final String QUEUE_TITLE = "__%s has added %d new track%s to the Queue:__";
 	protected static final String QUEUE_DESCRIPTION = "%s **|>**  %s\n%s\n%s %s\n%s";
@@ -83,38 +98,174 @@ public class MusicController implements BotController
 		
 		player.setVolume(69);
 		player.addListener(scheduler);
+		
+		spotifyApi = Api.builder().clientId("303babbbba34411381353255823fe14c").clientSecret(Bootstrap.getSpotifyKey()).redirectURI("https://www.reddit.com/ButtSharpies").build();
+		// spotifyApi = Api.DEFAULT_API;
+		SpotifyTokenRefresh spotifyTokenRefresh = new SpotifyTokenRefresh();
+		spotifyTokenRefresh.run();
+		globalExecutorService.scheduleAtFixedRate(spotifyTokenRefresh, 10, 10, TimeUnit.MINUTES);
+	}
+	
+	public String checkIdentifierForLinks(Message message, String identifier)
+	{
+		if (!identifier.contains("youtube.com") && !identifier.contains("spotify.com"))
+		{
+			return "ytsearch: " + identifier;
+		}
+		else if (identifier.contains("spotify.com") && identifier.contains("/track/"))
+		{
+			// spotify get track request, return name and artist ytsearch
+		}
+		else if (identifier.contains("spotify.com") && identifier.contains("/playlist/"))
+		{
+			try
+			{
+				LOG.info("Loading spotify playlist...");
+				loadSpotifyPlaylist(message, identifier);
+				return null;
+			}
+			catch (Exception e)
+			{
+				LOG.error("Failed to load spotify playlist " + identifier);
+				return null;
+			}
+		}
+		
+		LOG.info("Returning song identifier: " + identifier);
+		return identifier;
+	}
+	
+	public void loadSpotifyPlaylist(Message message, String identifier) throws IOException, WebApiException
+	{
+		String playlistId = identifier.split("/playlist/")[1];
+		String userId = identifier.substring(identifier.indexOf("/user/") + 6, identifier.indexOf("/playlist/"));
+		LOG.debug("Playlist userid: " + userId);
+		LOG.debug("Playlist playlistId: " + playlistId);
+		
+		PlaylistRequest request = spotifyApi.getPlaylist(userId, playlistId).build();
+		List<PlaylistTrack> playlist = request.get().getTracks().getItems();
+		LOG.info("Playlist returned " + playlist.size() + " tracks.");
+		
+		message.getChannel().sendMessage("Adding " + Math.min(playlist.size(), 10) + " tracks to the queue.");
+		final List<String> errorCount = new ArrayList<String>();
+		
+		
+		String firstSearchTerm = "ytsearch: " + playlist.get(0).getTrack().getName() + " " + playlist.get(0).getTrack().getArtists().get(0).getName();
+		
+		// Play the first song and load the rest
+		play(message, firstSearchTerm);
+		
+		for (int i = 1; i < Math.min(playlist.size(), 10); i++)
+		{
+			PlaylistTrack t = playlist.get(i);
+			String searchTerm = "ytsearch: " + t.getTrack().getName() + " " + t.getTrack().getArtists().get(0).getName();
+			
+			manager.loadItemOrdered(this, searchTerm, new AudioLoadResultHandler()
+			{
+				@Override
+				public void trackLoaded(AudioTrack track)
+				{
+					System.out.println("Track Loaded: " + track.getInfo().title);
+					connectToVoiceChannel(message);
+					
+					scheduler.addToQueue(track);
+				}
+				
+				@Override
+				public void noMatches()
+				{
+					errorCount.add(searchTerm);
+				}
+				
+				@Override
+				public void loadFailed(FriendlyException throwable)
+				{
+					errorCount.add(searchTerm);
+				}
+				
+				@Override
+				public void playlistLoaded(AudioPlaylist playlist)
+				{
+					connectToVoiceChannel(message);
+					AudioTrack audioTrack = playlist.getTracks().get(0);
+					
+					AudioTrackInfo info = new AudioTrackInfo(t.getTrack().getName(), t.getTrack().getArtists().get(0).getName(), audioTrack.getInfo().length, searchTerm,
+							audioTrack.getInfo().isStream, audioTrack.getInfo().uri);
+					
+					audioTrack.setUserData(info);
+					
+					scheduler.addToQueue(audioTrack);
+				}
+			});
+		}
+		
+		message.getChannel().sendMessage("Loaded playlist with " + errorCount.size() + " errors.");
+	}
+	
+	@BotCommandHandler
+	private void yeaboi(Message message)
+	{
+		manager.loadItemOrdered(this, "https://www.youtube.com/watch?v=eVgR9UbMBAg", new AudioLoadResultHandler()
+		{
+			
+			@Override
+			public void trackLoaded(AudioTrack track)
+			{
+				connectToVoiceChannel(message);
+				scheduler.playNow(track, true);
+			}
+			
+			@Override
+			public void playlistLoaded(AudioPlaylist playlist)
+			{
+				// Auto-generated method stub
+			}
+			
+			@Override
+			public void noMatches()
+			{
+				// Auto-generated method stub
+			}
+			
+			@Override
+			public void loadFailed(FriendlyException exception)
+			{
+				// Auto-generated method stub
+			}
+			
+		});
+		
+		
+		try
+		{
+			Thread.sleep(2000);
+		}
+		catch (InterruptedException e)
+		{
+			e.printStackTrace();
+		}
+		
+		
 	}
 	
 	@BotCommandHandler
 	private void play(Message message, String identifier)
 	{
-		if (!identifier.contains("http"))
-		{
-			identifier = "ytsearch: " + identifier;
-		}
-		
+		identifier = checkIdentifierForLinks(message, identifier);
 		addTrack(message, identifier, false);
 	}
 	
 	@BotCommandHandler
 	private void playNow(Message message, String identifier)
 	{
-		if (!identifier.contains("http"))
-		{
-			identifier = "ytsearch: " + identifier;
-		}
-		
+		identifier = checkIdentifierForLinks(message, identifier);
 		addTrack(message, identifier, true);
 	}
 	
 	@BotCommandHandler
 	private void playNext(Message message, String identifier)
 	{
-		if (!identifier.contains("http"))
-		{
-			identifier = "ytsearch: " + identifier;
-		}
-		
+		identifier = checkIdentifierForLinks(message, identifier);
 		addTrack(message, identifier, false, true);
 	}
 	
@@ -396,6 +547,11 @@ public class MusicController implements BotController
 	
 	private void addTrack(final Message message, final String identifier, final boolean now, final boolean next)
 	{
+		if (null == identifier)
+		{
+			return;
+		}
+		
 		outputChannel.set(message.getTextChannel());
 		
 		manager.loadItemOrdered(this, identifier, new AudioLoadResultHandler()
@@ -446,7 +602,7 @@ public class MusicController implements BotController
 				else
 				{
 					selected = tracks.get(0);
-					message.getChannel().sendMessage("Added first track from playlist: " + selected.getInfo().title).queue();
+					message.getChannel().sendMessage("Added track from playlist: " + selected.getInfo().title).queue();
 					
 					for (int i = 0; i < Math.min(10, playlist.getTracks().size()); i++)
 					{
@@ -484,6 +640,8 @@ public class MusicController implements BotController
 				message.getChannel().sendMessage("Failed with message: " + throwable.getMessage() + " (" + throwable.getClass().getSimpleName() + ")").queue();
 			}
 		});
+		
+		message.delete().queue();
 	}
 	
 	private void forPlayingTrack(TrackOperation operation)
@@ -532,11 +690,6 @@ public class MusicController implements BotController
 			Set<AudioTrack> queue = scheduler.getQueuedTracks();
 			
 			queue.forEach(t -> sb.append(buildQueueMessage(t)));
-			// for (AudioTrack track : queue)
-			// {
-			// System.out.println(buildQueueMessage(track));
-			// sb.append(buildQueueMessage(track));
-			// }
 			
 			String embedTitle = String.format(QUEUE_INFO, queue.size() + 1);
 			
@@ -570,8 +723,20 @@ public class MusicController implements BotController
 	
 	protected String buildQueueMessage(AudioTrack audioTrack)
 	{
-		AudioTrackInfo trackInfo = audioTrack.getInfo();
-		String title = trackInfo.title;
+		AudioTrackInfo trackInfo;
+		String title;
+		if (audioTrack.getUserData(AudioTrackInfo.class) != null)
+		{
+			trackInfo = audioTrack.getUserData(AudioTrackInfo.class);
+			title = trackInfo.title + " - " + trackInfo.author;
+		}
+		else
+		{
+			trackInfo = audioTrack.getInfo();
+			title = trackInfo.title;
+		}
+		
+		
 		long length = trackInfo.length;
 		return "`[ " + getTimestamp(length) + " ]` " + title + "\n";
 	}
@@ -593,7 +758,7 @@ public class MusicController implements BotController
 		{
 			if (!message.getMember().getVoiceState().inVoiceChannel())
 			{
-				messageDispatcher.sendMessage("User must be in a voice channel to request a song.");
+				message.getChannel().sendMessage("User must be in a voice channel to request a song.");
 			}
 			else
 			{
@@ -605,6 +770,34 @@ public class MusicController implements BotController
 	private interface TrackOperation
 	{
 		void execute(AudioTrack track);
+	}
+	
+	private class SpotifyTokenRefresh implements Runnable
+	{
+		@Override
+		public void run()
+		{
+			final ClientCredentialsGrantRequest request = spotifyApi.clientCredentialsGrant().build();
+			
+			final SettableFuture<ClientCredentials> responseFuture = request.getAsync();
+			
+			Futures.addCallback(responseFuture, new FutureCallback<ClientCredentials>()
+			{
+				@Override
+				public void onSuccess(ClientCredentials clientCredentials)
+				{
+					System.out.println("Successfully retrieved an access token! " + clientCredentials.getAccessToken());
+					System.out.println("The access token expires in " + clientCredentials.getExpiresIn() + " seconds");
+					spotifyApi.setAccessToken(clientCredentials.getAccessToken());
+				}
+				
+				@Override
+				public void onFailure(Throwable throwable)
+				{
+					System.out.println("Failed to get client credentials. " + throwable.getMessage());
+				}
+			});
+		}
 	}
 	
 	private class GlobalDispatcher implements MessageDispatcher
