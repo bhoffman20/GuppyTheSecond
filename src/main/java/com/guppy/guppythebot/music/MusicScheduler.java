@@ -97,7 +97,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		}
 		else
 		{
-			messageDispatcher.sendMessage("Queue finished.");
+			// messageDispatcher.sendMessage("Queue finished.");
 			player.destroy();
 			guild.getAudioManager().closeAudioConnection();
 		}
@@ -106,7 +106,17 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	@Override
 	public void onTrackStart(AudioPlayer player, AudioTrack track)
 	{
-		updateTrackBox(true);
+		String inf = track.getUserData().toString();
+		
+		if ("noTrackBox".equals(inf))
+		{
+			// no box
+		}
+		else
+		{
+			updateTrackBox(true);
+		}
+		
 	}
 	
 	@Override

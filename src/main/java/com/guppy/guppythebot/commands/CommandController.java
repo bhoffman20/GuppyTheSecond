@@ -5,6 +5,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collections;
@@ -22,6 +23,8 @@ import java.util.TimerTask;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+
+import org.apache.commons.io.IOUtils;
 
 import com.guppy.guppythebot.Bootstrap;
 import com.guppy.guppythebot.BotApplicationManager;
@@ -77,6 +80,21 @@ public class CommandController implements BotController
 		BotTimer t = new BotTimer(message, timerMinutes * 60 * 1000L);
 		Timer timer = new Timer(true);
 		timer.schedule(t, 0);
+	}
+	
+	@BotCommandHandler
+	private void version(Message message)
+	{
+		File versionFile = new File("version.txt");
+		
+		try (InputStream in = this.getClass().getClassLoader().getResourceAsStream("version.txt");)
+		{
+			message.getChannel().sendMessage(IOUtils.toString(in)).queue();
+		}
+		catch (IOException e)
+		{
+			message.getChannel().sendMessage("Failed to read version String.").queue();
+		}
 	}
 	
 	@BotCommandHandler

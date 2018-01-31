@@ -26,7 +26,7 @@ public class Bootstrap
 	
 	public static void main(String[] args) throws Exception
 	{
-		LOG.info("Starting GuppyTheBot v2");
+		LOG.info("Starting GuppyTheBot");
 		
 		FileReader reader = new FileReader("bot.properties");
 		Properties p = new Properties();
@@ -35,18 +35,6 @@ public class Bootstrap
 		LOG.info("Initializing Spotify API");
 		
 		spotifyKey = p.getProperty("spotify.secret");
-		
-		
-		// refreshToken();
-		
-		// LOG.info("API Ready");
-		// PlaylistRequest request = spotifyApi.getPlaylist("pohnnie",
-		// "3cEBSPmP0mi4kLbOXh3fYe?si=QeIcvIuOR4KJI5hXFcH4bw").build();
-		// request.get().getTracks().getItems().forEach(t ->
-		// LOG.info(t.getTrack().getName() + ", " +
-		// t.getTrack().getArtists().get(0).getName()));
-		
-		String identifier = "https://open.spotify.com/user/pohnnie/playlist/3cEBSPmP0mi4kLbOXh3fYe?si=QeIcvIuOR4KJI5hXFcH4bw";
 		
 		LOG.info("Loading Bot Key");
 		String key = p.getProperty("key");

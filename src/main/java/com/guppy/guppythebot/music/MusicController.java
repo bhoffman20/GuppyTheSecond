@@ -39,7 +39,6 @@ import com.sedmelluq.discord.lavaplayer.remote.RemoteNode;
 import com.sedmelluq.discord.lavaplayer.remote.message.NodeStatisticsMessage;
 import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
-import com.sedmelluq.discord.lavaplayer.tools.PlayerLibrary;
 import com.sedmelluq.discord.lavaplayer.tools.io.MessageInput;
 import com.sedmelluq.discord.lavaplayer.tools.io.MessageOutput;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
@@ -100,7 +99,6 @@ public class MusicController implements BotController
 		player.addListener(scheduler);
 		
 		spotifyApi = Api.builder().clientId("303babbbba34411381353255823fe14c").clientSecret(Bootstrap.getSpotifyKey()).redirectURI("https://www.reddit.com/ButtSharpies").build();
-		// spotifyApi = Api.DEFAULT_API;
 		SpotifyTokenRefresh spotifyTokenRefresh = new SpotifyTokenRefresh();
 		spotifyTokenRefresh.run();
 		globalExecutorService.scheduleAtFixedRate(spotifyTokenRefresh, 10, 10, TimeUnit.MINUTES);
@@ -148,7 +146,6 @@ public class MusicController implements BotController
 		
 		message.getChannel().sendMessage("Adding " + Math.min(playlist.size(), 10) + " tracks to the queue.");
 		final List<String> errorCount = new ArrayList<String>();
-		
 		
 		String firstSearchTerm = "ytsearch: " + playlist.get(0).getTrack().getName() + " " + playlist.get(0).getTrack().getArtists().get(0).getName();
 		
@@ -212,7 +209,9 @@ public class MusicController implements BotController
 			public void trackLoaded(AudioTrack track)
 			{
 				connectToVoiceChannel(message);
+				track.setUserData("noTrackBox");
 				scheduler.playNow(track, true);
+				player.setVolume(150);
 			}
 			
 			@Override
@@ -234,18 +233,6 @@ public class MusicController implements BotController
 			}
 			
 		});
-		
-		
-		try
-		{
-			Thread.sleep(2000);
-		}
-		catch (InterruptedException e)
-		{
-			e.printStackTrace();
-		}
-		
-		
 	}
 	
 	@BotCommandHandler
@@ -433,13 +420,6 @@ public class MusicController implements BotController
 		{
 			track.setMarker(null);
 		});
-	}
-	
-	@BotCommandHandler
-	private void version(Message message)
-	{
-		// TODO: Make this return the bot version
-		message.getChannel().sendMessage(PlayerLibrary.VERSION).queue();
 	}
 	
 	@BotCommandHandler

@@ -1,14 +1,16 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-  <modelVersion>4.0.0</modelVersion>
-  <groupId>com.guppy</groupId>
-  <artifactId>guppythebotv2</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
-  	<properties>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.guppy</groupId>
+	<artifactId>guppythebot</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 	</properties>
-	
+
 	<repositories>
 
 		<repository>
@@ -18,18 +20,18 @@
 		</repository>
 
 	</repositories>
-	
-	<dependencies>	
+
+	<dependencies>
 		<dependency>
-  			<groupId>se.michaelthelin.spotify</groupId>
- 			<artifactId>spotify-web-api-java</artifactId>
-  			<version>1.5.0</version>
+			<groupId>se.michaelthelin.spotify</groupId>
+			<artifactId>spotify-web-api-java</artifactId>
+			<version>1.5.0</version>
 		</dependency>
-	
+
 		<dependency>
-		    <groupId>org.apache.logging.log4j</groupId>
-		    <artifactId>log4j-slf4j-impl</artifactId>
-		    <version>2.10.0</version>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-slf4j-impl</artifactId>
+			<version>2.10.0</version>
 		</dependency>
 
 		<dependency>
@@ -37,20 +39,20 @@
 			<artifactId>JDA</artifactId>
 			<version>3.1.1_212</version>
 		</dependency>
-		
-			<dependency>
+
+		<dependency>
 			<groupId>com.sedmelluq</groupId>
 			<artifactId>jda-nas</artifactId>
 			<version>1.0.5</version>
 		</dependency>
-		
+
 
 		<dependency>
 			<groupId>com.sedmelluq</groupId>
 			<artifactId>lavaplayer</artifactId>
 			<version>1.2.42</version>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>com.mashape.unirest</groupId>
 			<artifactId>unirest-java</artifactId>
@@ -68,11 +70,63 @@
 			<artifactId>commons-lang3</artifactId>
 			<version>3.6</version>
 		</dependency>
-		
+
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.6</version>
+		</dependency>
+
+
 	</dependencies>
-	
-  <build>
+
+	<scm>
+		<connection>scm:git:ssh:https://github.com/bhoffman20/GuppyTheSecond.git</connection>
+		<developerConnection>scm:git:ssh:https://github.com/bhoffman20/GuppyTheSecond.git</developerConnection>
+		<url>https://github.com/bhoffman20/GuppyTheSecond.git</url>
+	</scm>
+
+	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>true</filtering>
+				<includes>
+					<include>**/version.txt</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>src/main/resources</directory>
+				<filtering>false</filtering>
+				<excludes>
+					<exclude>**/version.txt</exclude>
+				</excludes>
+			</resource>
+		</resources>
+
 		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>buildnumber-maven-plugin</artifactId>
+				<version>1.4</version>
+				<executions>
+					<execution>
+						<phase>validate</phase>
+						<goals>
+							<goal>create</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+
+					<format>0.1.{0,number}</format>
+					<items>
+						<item>buildNumber</item>
+					</items>
+					<doCheck>false</doCheck>
+					<doUpdate>false</doUpdate>
+				</configuration>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
@@ -89,9 +143,10 @@
 									implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 									<mainClass>com.guppy.guppythebot.Bootstrap</mainClass>
 								</transformer>
-								<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                 					 <resource>data/log4j2.properties</resource>
-                				</transformer>
+								<transformer
+									implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+									<resource>data/log4j2.properties</resource>
+								</transformer>
 							</transformers>
 							<artifactSet>
 								<excludes>
@@ -102,14 +157,14 @@
 					</execution>
 				</executions>
 			</plugin>
- 			<plugin>
-  				<groupId>org.apache.maven.plugins</groupId> 
- 				<artifactId>maven-compiler-plugin</artifactId> 
- 				<version>3.2</version> 
- 				<configuration>
-  					<useIncrementalCompilation>false</useIncrementalCompilation> 
-  				</configuration> 
-  			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.2</version>
+				<configuration>
+					<useIncrementalCompilation>false</useIncrementalCompilation>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 </project>
