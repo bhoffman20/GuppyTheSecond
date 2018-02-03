@@ -17,7 +17,8 @@ public class Bootstrap
 {
 	public static final List<String> CMD_PREFIX = Arrays.asList(".");
 	private static final Logger LOG = LogManager.getLogger(Bootstrap.class);
-	public static String spotifyKey;
+	public static String SPOTIFY_SECRET;
+	public static String AUTHOR_ID;
 	
 	public Bootstrap()
 	{
@@ -32,9 +33,8 @@ public class Bootstrap
 		Properties p = new Properties();
 		p.load(reader);
 		
-		LOG.info("Initializing Spotify API");
-		
-		spotifyKey = p.getProperty("spotify.secret");
+		SPOTIFY_SECRET = p.getProperty("spotify.secret");
+		AUTHOR_ID = p.getProperty("authorId");
 		
 		LOG.info("Loading Bot Key");
 		String key = p.getProperty("key");
@@ -50,7 +50,7 @@ public class Bootstrap
 	
 	public static String getSpotifyKey()
 	{
-		return spotifyKey;
+		return SPOTIFY_SECRET;
 	}
 	
 }

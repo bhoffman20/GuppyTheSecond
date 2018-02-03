@@ -73,6 +73,26 @@ public class CommandController implements BotController
 	}
 	
 	@BotCommandHandler
+	private void say(Message message, String messageText)
+	{
+		Message me = message;
+		message.delete().queue();
+		
+		if (me.getAuthor().getId().equals(Bootstrap.AUTHOR_ID))
+		{
+			MessageBuilder mb = new MessageBuilder();
+			mb.append(messageText);
+			
+			if (me.getMentionedUsers() != null)
+			{
+				me.getMentionedUsers().forEach(u -> mb.replaceAll("@" + u.getName(), u.getAsMention()));
+			}
+			
+			me.getChannel().sendMessage(mb.build()).queue();
+		}
+	}
+	
+	@BotCommandHandler
 	private void timer(Message message, int timerMinutes)
 	{
 		outputChannel.set(message.getTextChannel());
@@ -85,8 +105,6 @@ public class CommandController implements BotController
 	@BotCommandHandler
 	private void version(Message message)
 	{
-		File versionFile = new File("version.txt");
-		
 		try (InputStream in = this.getClass().getClassLoader().getResourceAsStream("version.txt");)
 		{
 			message.getChannel().sendMessage(IOUtils.toString(in)).queue();
