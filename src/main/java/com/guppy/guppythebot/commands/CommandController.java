@@ -119,7 +119,7 @@ public class CommandController implements BotController
 	private void report(Message message, String userAsMention)
 	{
 		outputChannel.set(message.getTextChannel());
-		
+		message.delete().queue();
 		File dataFolder = new File("data");
 		dataFolder.mkdirs();
 		
@@ -160,9 +160,26 @@ public class CommandController implements BotController
 						e.printStackTrace();
 					}
 				}
-				
-				messageDispatcher.sendMessage(u.getAsMention() + " has now been reported " + newVal + " times.");
 				prop.setProperty(u.getId(), "" + newVal);
+				
+				String preText = "";
+				if (message.getContent().contains(" for "))
+				{
+					String[] reason = message.getContent().split("for", 2);
+					
+					if (reason[1].trim() != "")
+					{
+						String reasonPhrase = reason[1].trim();
+						
+						// String firstWord = reasonPhrase.substring(0, reasonPhrase.indexOf(" "));
+						// if (firstWord.endsWith("ing"))
+						// {
+						preText = "This is a Christian Discord server, and `" + reasonPhrase + "` will not be tolerated. ";
+						// }
+					}
+				}
+				
+				messageDispatcher.sendMessage(preText + u.getAsMention() + " has now been reported " + newVal + " times.\n ");
 			}
 		}
 		else
