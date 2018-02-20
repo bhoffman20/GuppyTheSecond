@@ -2,6 +2,7 @@ package com.guppy.guppythebot.controller;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,11 +11,14 @@ import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.guppy.guppythebot.Bootstrap;
 import com.guppy.guppythebot.BotApplicationManager;
 import com.guppy.guppythebot.BotGuildContext;
 
 import net.dv8tion.jda.core.entities.Guild;
+import net.dv8tion.jda.core.entities.Member;
 import net.dv8tion.jda.core.entities.Message;
+import net.dv8tion.jda.core.entities.User;
 
 public class BotControllerManager
 {
@@ -29,39 +33,33 @@ public class BotControllerManager
 		commands = new HashMap<>();
 	}
 	
-	public void registerController(BotControllerFactory factory)
-	{
+	public void registerController(BotControllerFactory factory) {
 		controllerFactories.add(factory);
 		
 		Class<?> controllerClass = factory.getControllerClass();
 		
-		for (Method method : controllerClass.getDeclaredMethods())
-		{
+		for (Method method : controllerClass.getDeclaredMethods()) {
 			BotCommandHandler annotation = method.getAnnotation(BotCommandHandler.class);
 			
-			if (annotation != null)
-			{
+			if (annotation != null) {
 				registerControllerMethod(controllerClass, method, annotation);
 			}
 		}
 	}
 	
-	private void registerControllerMethod(Class<?> controllerClass, Method method, BotCommandHandler annotation)
-	{
+	private void registerControllerMethod(Class<?> controllerClass, Method method, BotCommandHandler annotation) {
 		String commandName = annotation.name().isEmpty() ? method.getName() : annotation.name();
 		String usage = annotation.usage().isEmpty() ? null : annotation.usage();
 		
 		Parameter[] methodParameters = method.getParameters();
-		if (methodParameters.length == 0 || !methodParameters[0].getType().isAssignableFrom(Message.class))
-		{
+		if (methodParameters.length == 0 || !methodParameters[0].getType().isAssignableFrom(Message.class)) {
 			return;
 		}
 		
 		method.setAccessible(true);
 		
 		List<Class<?>> parameters = new ArrayList<>();
-		for (int i = 1; i < methodParameters.length; i++)
-		{
+		for (int i = 1; i < methodParameters.length; i++) {
 			parameters.add(methodParameters[i].getType());
 		}
 		
@@ -69,40 +67,43 @@ public class BotControllerManager
 		commands.put(command.name, command);
 	}
 	
-	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, List<String> prefixList, Message message, BotCommandMappingHandler handler)
-	{
-		String content = message.getContent().trim();
-		String prefix = "";
+	public void dispatchMessage(Map<Class<? extends BotController>, BotController> instances, Message message, BotCommandMappingHandler handler) {
+		User user = message.getAuthor();
+		Member mem = message.getGuild().getMember(user);
 		
-		for (String p : prefixList)
-		{
-			if (content.startsWith(p))
-			{
-				prefix = p;
-				break;
+		if (user.isBot()) {
+			return;
+		}
+		
+		if (!Bootstrap.getDbUtil().userExists(user.getIdLong())) {
+			try {
+				Bootstrap.getDbUtil().insertNewUser(user.getIdLong(), mem.getEffectiveName(), false, null);
+			}
+			catch (SQLException e) {
+				LOG.error("Failed to insert user into database.");
+				e.printStackTrace();
 			}
 		}
 		
-		content = content.substring(prefix.length());
+		Bootstrap.getDbUtil().tryUpdateDisplayName(user.getIdLong(), mem.getEffectiveName());
+		
+		String content = message.getContent().trim();
 		
 		String[] batchCommands = content.split(";");
 		
-		for (String cmd : batchCommands)
-		{
+		for (String cmd : batchCommands) {
 			cmd = cmd.trim();
 			String[] separated = cmd.split("\\s+", 2);
 			String commandName = separated[0].trim();
 			Command command = commands.get(commandName);
-			if (command == null)
-			{
+			if (command == null) {
 				handler.commandNotFound(message, commandName);
 				return;
 			}
 			
 			String[] inputArguments = separated.length == 1 ? new String[0] : separated[1].split("\\s+", command.parameters.size());
 			
-			if (inputArguments.length != command.parameters.size())
-			{
+			if (inputArguments.length != command.parameters.size()) {
 				handler.commandWrongParameterCount(message, command.name, command.usage, inputArguments.length, command.parameters.size());
 				return;
 			}
@@ -110,106 +111,82 @@ public class BotControllerManager
 			Object[] arguments = new Object[command.parameters.size() + 1];
 			arguments[0] = message;
 			
-			for (int i = 0; i < command.parameters.size(); i++)
-			{
+			for (int i = 0; i < command.parameters.size(); i++) {
 				Class<?> parameterClass = command.parameters.get(i);
 				
-				try
-				{
+				try {
 					arguments[i + 1] = parseArgument(parameterClass, inputArguments[i]);
 				}
-				catch (IllegalArgumentException ignored)
-				{
+				catch (IllegalArgumentException ignored) {
 					handler.commandWrongParameterType(message, command.name, command.usage, i, inputArguments[i], parameterClass);
 					return;
 				}
 			}
 			
-			try
-			{
+			try {
 				command.commandMethod.invoke(instances.get(command.controllerClass), arguments);
 			}
-			catch (Exception e)
-			{
+			catch (Exception e) {
 				handler.commandException(message, command.name, e.getCause());
 			}
 			
 		}
 	}
 	
-	private Object parseArgument(Class<?> parameterClass, String value)
-	{
-		try
-		{
-			if (parameterClass == String.class)
-			{
+	private Object parseArgument(Class<?> parameterClass, String value) {
+		try {
+			if (parameterClass == String.class) {
 				return value;
 			}
-			else if (parameterClass == int.class || parameterClass == Integer.class)
-			{
+			else if (parameterClass == int.class || parameterClass == Integer.class) {
 				return Integer.valueOf(value);
 			}
-			else if (parameterClass == long.class || parameterClass == Long.class)
-			{
+			else if (parameterClass == long.class || parameterClass == Long.class) {
 				return Long.valueOf(value);
 			}
-			else if (parameterClass == boolean.class || parameterClass == Boolean.class)
-			{
+			else if (parameterClass == boolean.class || parameterClass == Boolean.class) {
 				return parseBooleanArgument(value);
 			}
-			else if (parameterClass == float.class || parameterClass == Float.class)
-			{
+			else if (parameterClass == float.class || parameterClass == Float.class) {
 				return Float.valueOf(value);
 			}
-			else if (parameterClass == double.class || parameterClass == Double.class)
-			{
+			else if (parameterClass == double.class || parameterClass == Double.class) {
 				return Double.valueOf(value);
 			}
-			else
-			{
+			else {
 				throw new IllegalArgumentException();
 			}
 		}
-		catch (NumberFormatException ignored)
-		{
+		catch (NumberFormatException ignored) {
 			throw new IllegalArgumentException();
 		}
 	}
 	
-	private boolean parseBooleanArgument(String value)
-	{
-		if ("yes".equals(value) || "true".equals(value))
-		{
+	private boolean parseBooleanArgument(String value) {
+		if ("yes".equals(value) || "true".equals(value)) {
 			return true;
 		}
-		else if ("no".equals(value) || "false".equals(value))
-		{
+		else if ("no".equals(value) || "false".equals(value)) {
 			return false;
 		}
-		else
-		{
+		else {
 			int integerValue = Integer.valueOf(value);
 			
-			if (integerValue == 1)
-			{
+			if (integerValue == 1) {
 				return true;
 			}
-			else if (integerValue == 0)
-			{
+			else if (integerValue == 0) {
 				return false;
 			}
-			else
-			{
+			else {
 				throw new IllegalArgumentException();
 			}
 		}
 	}
 	
-	public List<BotController> createControllers(BotApplicationManager applicationManager, BotGuildContext context, Guild guild)
-	{
+	public List<BotController> createControllers(BotApplicationManager applicationManager, BotGuildContext context, Guild guild) {
 		List<BotController> controllers = new ArrayList<>();
-		for (BotControllerFactory factory : controllerFactories)
-		{
+		for (BotControllerFactory factory : controllerFactories) {
 			controllers.add(factory.create(applicationManager, context, guild));
 		}
 		return controllers;

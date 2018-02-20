@@ -63,35 +63,29 @@ public class BotApplicationManager extends ListenerAdapter
 		executorService = Executors.newScheduledThreadPool(1, new DaemonThreadFactory("bot"));
 	}
 	
-	public ScheduledExecutorService getExecutorService()
-	{
+	public ScheduledExecutorService getExecutorService() {
 		return executorService;
 	}
 	
-	public AudioPlayerManager getPlayerManager()
-	{
+	public AudioPlayerManager getPlayerManager() {
 		return playerManager;
 	}
 	
-	private BotGuildContext createGuildState(long guildId, Guild guild)
-	{
+	private BotGuildContext createGuildState(long guildId, Guild guild) {
 		BotGuildContext context = new BotGuildContext(guildId);
 		
-		for (BotController controller : controllerManager.createControllers(this, context, guild))
-		{
+		for (BotController controller : controllerManager.createControllers(this, context, guild)) {
 			context.controllers.put(controller.getClass(), controller);
 		}
 		
 		return context;
 	}
 	
-	private synchronized BotGuildContext getContext(Guild guild)
-	{
+	private synchronized BotGuildContext getContext(Guild guild) {
 		long guildId = Long.parseLong(guild.getId());
 		BotGuildContext context = guildContexts.get(guildId);
 		
-		if (context == null)
-		{
+		if (context == null) {
 			context = createGuildState(guildId, guild);
 			guildContexts.put(guildId, context);
 		}
@@ -100,44 +94,37 @@ public class BotApplicationManager extends ListenerAdapter
 	}
 	
 	@Override
-	public void onMessageReceived(final MessageReceivedEvent event)
-	{
-		if (!event.isFromType(ChannelType.TEXT))
-		{
+	public void onMessageReceived(final MessageReceivedEvent event) {
+		if (!event.isFromType(ChannelType.TEXT)) {
 			return;
 		}
 		
 		BotGuildContext guildContext = getContext(event.getGuild());
 		
-		controllerManager.dispatchMessage(guildContext.controllers, Bootstrap.CMD_PREFIX, event.getMessage(), new BotCommandMappingHandler()
+		controllerManager.dispatchMessage(guildContext.controllers, event.getMessage(), new BotCommandMappingHandler()
 		{
 			@Override
-			public void commandNotFound(Message message, String name)
-			{
+			public void commandNotFound(Message message, String name) {
 				
 			}
 			
 			@Override
-			public void commandWrongParameterCount(Message message, String name, String usage, int given, int required)
-			{
+			public void commandWrongParameterCount(Message message, String name, String usage, int given, int required) {
 				event.getTextChannel().sendMessage("Wrong argument count for command").queue();
 			}
 			
 			@Override
-			public void commandWrongParameterType(Message message, String name, String usage, int index, String value, Class<?> expectedType)
-			{
+			public void commandWrongParameterType(Message message, String name, String usage, int index, String value, Class<?> expectedType) {
 				event.getTextChannel().sendMessage("Wrong argument type for command").queue();
 			}
 			
 			@Override
-			public void commandRestricted(Message message, String name)
-			{
+			public void commandRestricted(Message message, String name) {
 				event.getTextChannel().sendMessage("Command not permitted").queue();
 			}
 			
 			@Override
-			public void commandException(Message message, String name, Throwable throwable)
-			{
+			public void commandException(Message message, String name, Throwable throwable) {
 				event.getTextChannel().sendMessage("Command threw an exception").queue();
 				log.error("Command with content {} threw an exception.", message.getContent(), throwable);
 			}

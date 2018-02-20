@@ -44,28 +44,23 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		this.executorService.scheduleAtFixedRate(this, 3000L, 3000L, TimeUnit.MILLISECONDS);
 	}
 	
-	public void addToQueue(AudioTrack audioTrack)
-	{
+	public void addToQueue(AudioTrack audioTrack) {
 		queue.offer(audioTrack);
 		startNextTrack(true);
 	}
 	
-	public List<AudioTrack> drainQueue()
-	{
+	public List<AudioTrack> drainQueue() {
 		List<AudioTrack> drainedQueue = new ArrayList<>();
 		queue.drainTo(drainedQueue);
 		return drainedQueue;
 	}
 	
-	public Set<AudioTrack> getQueuedTracks()
-	{
+	public Set<AudioTrack> getQueuedTracks() {
 		return new LinkedHashSet<>(queue);
 	}
 	
-	public void playNow(AudioTrack audioTrack, boolean clearQueue)
-	{
-		if (clearQueue)
-		{
+	public void playNow(AudioTrack audioTrack, boolean clearQueue) {
+		if (clearQueue) {
 			queue.clear();
 		}
 		
@@ -73,30 +68,24 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 		startNextTrack(false);
 	}
 	
-	public void playNext(AudioTrack audioTrack)
-	{
+	public void playNext(AudioTrack audioTrack) {
 		// TODO: Fix this
 		queue.offer(audioTrack);
 	}
 	
-	public void skip()
-	{
+	public void skip() {
 		startNextTrack(false);
 	}
 	
-	private void startNextTrack(boolean noInterrupt)
-	{
+	private void startNextTrack(boolean noInterrupt) {
 		AudioTrack next = queue.peek();
 		
-		if (next != null)
-		{
-			if (player.startTrack(next, noInterrupt))
-			{
+		if (next != null) {
+			if (player.startTrack(next, noInterrupt)) {
 				queue.remove(next);
 			}
 		}
-		else
-		{
+		else {
 			// messageDispatcher.sendMessage("Queue finished.");
 			player.destroy();
 			guild.getAudioManager().closeAudioConnection();
@@ -104,26 +93,13 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	}
 	
 	@Override
-	public void onTrackStart(AudioPlayer player, AudioTrack track)
-	{
-		String inf = track.getUserData().toString();
-		
-		if ("noTrackBox".equals(inf))
-		{
-			// no box
-		}
-		else
-		{
-			updateTrackBox(true);
-		}
-		
+	public void onTrackStart(AudioPlayer player, AudioTrack track) {
+		updateTrackBox(true);
 	}
 	
 	@Override
-	public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason)
-	{
-		if (endReason.mayStartNext)
-		{
+	public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
+		if (endReason.mayStartNext) {
 			startNextTrack(true);
 			// messageDispatcher.sendMessage(String.format("Track %s finished.",
 			// track.getInfo().title));
@@ -131,58 +107,46 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	}
 	
 	@Override
-	public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs)
-	{
+	public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
 		messageDispatcher.sendMessage(String.format("Track %s got stuck, skipping.", track.getInfo().title));
 		
 		startNextTrack(false);
 	}
 	
 	@Override
-	public void onPlayerResume(AudioPlayer player)
-	{
+	public void onPlayerResume(AudioPlayer player) {
 		updateTrackBox(false);
 	}
 	
 	@Override
-	public void onPlayerPause(AudioPlayer player)
-	{
+	public void onPlayerPause(AudioPlayer player) {
 		updateTrackBox(false);
 	}
 	
-	private void updateTrackBox(boolean newMessage)
-	{
+	private void updateTrackBox(boolean newMessage) {
 		AudioTrack track = player.getPlayingTrack();
 		
-		if (track == null || newMessage)
-		{
+		if (track == null || newMessage) {
 			Message message = boxMessage.getAndSet(null);
 			
-			if (message != null)
-			{
+			if (message != null) {
 				message.delete();
 			}
 		}
 		
-		if (track != null)
-		{
+		if (track != null) {
 			Message message = boxMessage.get();
 			String box = TrackBoxBuilder.buildTrackBox(80, track, player.isPaused(), player.getVolume());
 			
-			if (message != null)
-			{
+			if (message != null) {
 				message.editMessage(box).queue();
 			}
-			else
-			{
-				if (creatingBoxMessage.compareAndSet(false, true))
-				{
-					messageDispatcher.sendMessage(box, created ->
-					{
+			else {
+				if (creatingBoxMessage.compareAndSet(false, true)) {
+					messageDispatcher.sendMessage(box, created -> {
 						boxMessage.set(created);
 						creatingBoxMessage.set(false);
-					}, error ->
-					{
+					}, error -> {
 						creatingBoxMessage.set(false);
 					});
 				}
@@ -191,8 +155,7 @@ public class MusicScheduler extends AudioEventAdapter implements Runnable
 	}
 	
 	@Override
-	public void run()
-	{
+	public void run() {
 		updateTrackBox(false);
 	}
 	
